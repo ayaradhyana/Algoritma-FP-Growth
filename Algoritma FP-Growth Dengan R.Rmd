@@ -1,14 +1,15 @@
 ---
 title: Algoritma FP-Growth dengan R
+author: "Radhyana Dwi Cahyaning Risdianti-Institut Teknologi Statistika dan Bisnis Muhammadiyah"
 date: "`r Sys.Date()`"
-author: Radhyana Dwi Cahyaning Risdianti-Institut Teknologi Statistika dan Bisnis Muhammadiyah
-output:
-  rmdformats::readthedown:
-    self_contained: true
-    thumbnails: true
-    lightbox: true
-    gallery: false
-    highlight: tango
+output: 
+  html_document:
+    theme: flatly
+    higlight: zenburn
+    toc: true
+    toc_float:
+      collapsed: true
+    df_print: paged
 bibliography: references.bib
 ---
 
@@ -22,24 +23,45 @@ text-align: justify}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# R Markdown
+# Pengertian Algoritma FP-Growth
+Algoritma Frequent Pattern Growth adalah salah satu alternatif algoritma yang dapat digunakan untuk menentukan himpunan data yang paling sering muncul (frequent itemset) dalam sebuah kumpulan data. (David Samuel, 2008)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents [@deCarvalho2012]. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+FP-growth adalah salah satu alternatif algoritma yang dapat digunakan untuk menentukan himpunan data yang paling sering muncul (frequent itemset) dalam sebuah kumpulan data. FP growth menggunakan pendekatan yang berbeda dari paradigma yang digunakan pada algoritma Apriori. (Gunadi, G. & Sensuse, D.I. (2012))
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Algoritma FP-Growth merupakan pengembangan dari algoritma Apriori. Sehingga kekurangan dari algoritma Apriori diperbaiki oleh algoritma FP-Growth. (Kusrini dan E. T. Luthfi. 2009).
 
-```{r cars}
-summary(cars)
+Jadi kesimpulannya, FP-growth merupakan salah satu algoritma yang menjadi dasar perkembangan algoritma baru yang lebih efektif. 
+
+# Tahapan Algoritma FP-Growth
+Penggalian itemset yang frequent dengan menggunakan algoritma FP-Growth akan dilakukan dengan cara membangkitkan struktur data tree (FP-Tree). Metode FP-Growth dapat dibagi menjadi 3 tahapan utama yaitu sebagai berikut : 
+
+a. Tahap Pembangkitan conditional pattern base merupakan subdatabase yang berisi prefix path (lintasan prefix) dan suffix pattern (pola akhiran). Pembangkitan conditional pattern base didapatkan melalui FP-tree yang telah dibangun sebelumnya. 
+b. Tahap pebangkitan conditional FP-Tree, pada tahap ini, support count dari setiap item pada setiap conditional pattern base dijumlahkan, lalu setiap item yang memiliki jumlah support count lebih besar sama dengan minimum support count akan dibangkitkan dengan conditional FP-tree. 
+c. Tahap pencarian frequent itemset, apabila Conditional FP-tree merupakan lintasan tunggal (single path), maka didapatkan frequent itemset dengan melakukan kombinasi item untuk setiap conditional FP-tree. Jika bukan lintasan tunggal, maka dilakukan pembangkitan FP-growth secara rekursif
+
+# Eksperimen Algoritma FP-Growth
+## Library
+```{r eval=FALSE}
+library(tidyverse)
+library(arules)
+library(arulesViz)
+library(gridExtra)
+library(ggthemes)
+library(dplyr)
+library(readxl)
+library(plyr)
+library(ggplot2)
+library(knitr)
+library(lubridate)
+library(kableExtra)
+library(RColorBrewer)
+
+```
+## Data Preparation
+```{r eval=FALSE}
+#read excel into R dataframe
+retail <- read_excel('~/Desktop/R_markdown/Market_Basket_Analysis/Online Retail.xlsx')
+retail <- retail[complete.cases(retail), ] # will clean up the non missing values.
+
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-# Referensi
