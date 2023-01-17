@@ -39,29 +39,279 @@ a. Tahap Pembangkitan conditional pattern base merupakan subdatabase yang berisi
 b. Tahap pebangkitan conditional FP-Tree, pada tahap ini, support count dari setiap item pada setiap conditional pattern base dijumlahkan, lalu setiap item yang memiliki jumlah support count lebih besar sama dengan minimum support count akan dibangkitkan dengan conditional FP-tree. 
 c. Tahap pencarian frequent itemset, apabila Conditional FP-tree merupakan lintasan tunggal (single path), maka didapatkan frequent itemset dengan melakukan kombinasi item untuk setiap conditional FP-tree. Jika bukan lintasan tunggal, maka dilakukan pembangkitan FP-growth secara rekursif
 
+## Rumus Assosiaction Rules
+Support $(A)$
+$$
+=\frac{\text { Jumlah transaksi yang mengandung Item A }}{\text { Total Transaksi }}
+$$
+Support $(A, B)=P(A \cap B)$
+$$
+=\frac{\text { Jumlah Transaksi yang mengandung A dan B }}{\text { Total Transaksi }}
+$$
+
+
 # Eksperimen Algoritma FP-Growth
-## Library
-```{r eval=FALSE}
+## Memanggil Library
+```{r warning=FALSE}
 library(tidyverse)
+library(Matrix)
 library(arules)
 library(arulesViz)
 library(gridExtra)
 library(ggthemes)
+library(plyr)
 library(dplyr)
 library(readxl)
-library(plyr)
 library(ggplot2)
 library(knitr)
+library(timechange)
 library(lubridate)
 library(kableExtra)
 library(RColorBrewer)
-
 ```
-## Data Preparation
-```{r eval=FALSE}
-#read excel into R dataframe
-retail <- read_excel('~/Desktop/R_markdown/Market_Basket_Analysis/Online Retail.xlsx')
+## Persiapan Data
+```{r}
+retail <- readxl::read_excel("D:/Downloads/Online Retail.xlsx")
 retail <- retail[complete.cases(retail), ] # will clean up the non missing values.
-
+```
+Mari kita dapatkan ide tentang apa yang sedang kita kerjakan.
+```{r}
+dplyr::glimpse(retail)
 ```
 
+## Pembersihan Data
+Langkah pertama mari kita bersihkan variabel kelas untuk kumpulan data.
+```{r warning=FALSE}
+retail$Description <- as.factor(retail$Description)
+retail$Country <- retail$Country
+retail$Date <- as.Date(retail$InvoiceDate)
+retail$InvoiceNo <- as.numeric(as.character(retail$InvoiceNo)) 
+retail$Time <- format(retail$InvoiceDate,"%H:%M:%S")
+```
+
+```{r}
+#ddply(dataframe, variables_to_be_used_to_split_data_frame, function_to_be_applied)
+transaction_data <- ddply(retail,c("InvoiceNo","Date"),
+                       function(df1)paste(df1$Description,
+                       collapse = ","))
+# paste() concatenates vectors to character and separated results using collapse=[any optional charcater string ]. Here ',' is used
+```
+
+```{r}
+## Remove redundancies
+transaction_data$InvoiceNo <- NULL # set column InvoiceNo of dataframe transactionData  
+transaction_data$Date <- NULL # set column Date of dataframe transactionData
+colnames(transaction_data) <- c("items") # Rename column to items
+```
+
+## Simpan file sebagai output (tulis csv)
+```{r}
+write.csv(transaction_data,'D:/Downloads/Online retail.csv', quote = FALSE, row.names = TRUE)
+# Quote : TRUE "character or factor column with double quotes."
+# Quote : FALSE nothing will be quoted
+# row.names : either a logical value indicating whether the row names of x are to be written along with x, or a character vector of row names to be written.
+```
+
+```{r warning=FALSE}
+# Akan mendapatkan banyak EOF dalam string yang dikutip dalam output Anda
+tr <- read.transactions('D:/Downloads/Online retail.csv', format = 'basket', sep=',')
+# sep memberitahu bagaimana item dipisahkan.
+```
+
+## Summary
+```{r}
+summary(tr)
+```
+
+## 12 Plot frekuensi dari 10 Item teratas:
+```{r}
+top_items<-retail %>%
+  dplyr::group_by(Description) %>%
+  dplyr::summarise(count=n()) %>%
+  dplyr::arrange(desc(count))
+
+summary(retail)
+```
+
+```{r}
+top_items<-head(top_items,7)
+
+ggplot(top_items,aes(x=reorder(Description,count), y=count))+
+  geom_bar(stat="identity",fill="cadetblue")+
+  coord_flip()+
+  scale_y_continuous(limits = c(0,3000))+
+  ggtitle("Frequency plot of top 10 Items")+
+  xlab("itemDescription of item")+
+  ylab("Count")+
+  theme_fivethirtyeight()
+```
+
+Kita dapat memplot Nilai Relatif atau Absolut. - Mutlak: memplot frekuensi numerik setiap item secara terpisah - Relatif: berapa kali item ini muncul dibandingkan dengan yang lain.
+```{r}
+itemFrequencyPlot(tr,topN=10,type="absolute",col=brewer.pal(8,'Pastel2'), main="Top 7 Absolute Item Frequency Plot", horiz = TRUE)
+```
+
+```{r}
+itemFrequencyPlot(tr,topN=10,type="relative",col=brewer.pal(8,'Pastel2'),main="Top 10 Relative Item Frequency Plot", horiz = TRUE)
+```
+
+## Aturan asosiasi
+```{r warning=FALSE}
+#Spesifikasi Parameter: nilai min_sup=0,001, min_confident=0,8 dengan aturan maksimal 10 item item.
+association_rules <- apriori(tr, parameter = list(supp=0.001, conf=0.8,maxlen=10))
+```
+
+## Hasil Tampilan
+```{r}
+inspect(tr[1:10]) #tampilkan transaksi
+```
+
+## Scater Plot
+```{r}
+# Filter aturan dengan keyakinan lebih besar dari 0,4 atau 40%
+subRules<-association_rules[quality(association_rules)$confidence>0.4]
+#Plot SubRules
+plot(subRules)
+```
+
+```{r}
+plot(subRules,method="two-key plot")
+```
+
+Matrix Plot
+```{r}
+# Plot matriks yang dikelompokkan
+plot(subRules[1:10], method="grouped")
+```
+
+## Apriori algorithm
+```{r}
+# Support and confidence values
+supportLevels <- c(0.1, 0.05, 0.01, 0.005)
+confidenceLevels <- c(0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1)
+
+# Bilangan bulat kosong
+rules_sup10 <- integer(length=9)
+rules_sup5 <- integer(length=9)
+rules_sup1 <- integer(length=9)
+rules_sup0.5 <- integer(length=9)
+
+# Algoritma Apriori dengan tingkat dukungan 10%
+for (i in 1:length(confidenceLevels)) {
+  
+  rules_sup10[i] <- length(apriori(tr, parameter=list(sup=supportLevels[1], 
+                                   conf=confidenceLevels[i], target="rules")))
+  
+}
+
+# Algoritma Apriori dengan tingkat dukungan 5%
+for (i in 1:length(confidenceLevels)){
+  
+  rules_sup5[i] <- length(apriori(tr, parameter=list(sup=supportLevels[2], 
+                                  conf=confidenceLevels[i], target="rules")))
+  
+}
+
+# Algoritma Apriori dengan tingkat dukungan 1%
+for (i in 1:length(confidenceLevels)){
+  
+  rules_sup1[i] <- length(apriori(tr, parameter=list(sup=supportLevels[3], 
+                                  conf=confidenceLevels[i], target="rules")))
+  
+}
+
+# Algoritma Apriori dengan tingkat dukungan 0,5%
+for (i in 1:length(confidenceLevels)){
+  
+  rules_sup0.5[i] <- length(apriori(tr, parameter=list(sup=supportLevels[4], 
+                                    conf=confidenceLevels[i], target="rules")))
+  
+}
+```
+
+Pada grafik berikut dapat dilihat jumlah rule yang dihasilkan dengan level support 10%, 5%, 1% dan 0.5%.
+```{r warning=FALSE}
+# Jumlah aturan ditemukan dengan tingkat dukungan 10%
+plot1 <- qplot(confidenceLevels, rules_sup10, geom=c("point", "line"), 
+               xlab="Confidence level", ylab="Number of rules found", 
+               main="Apriori with a support level of 10%") +
+  theme_bw()
+
+# Jumlah aturan ditemukan dengan tingkat dukungan 5%
+plot2 <- qplot(confidenceLevels, rules_sup5, geom=c("point", "line"), 
+               xlab="Confidence level", ylab="Number of rules found", 
+               main="Apriori with a support level of 5%") + 
+  scale_y_continuous(breaks=seq(0, 10, 2)) +
+  theme_bw()
+
+# Jumlah aturan ditemukan dengan tingkat dukungan 1%
+plot3 <- qplot(confidenceLevels, rules_sup1, geom=c("point", "line"), 
+               xlab="Confidence level", ylab="Number of rules found", 
+               main="Apriori with a support level of 1%") + 
+  scale_y_continuous(breaks=seq(0, 50, 10)) +
+  theme_bw()
+
+# Jumlah aturan ditemukan dengan tingkat dukungan 0,5%
+plot4 <- qplot(confidenceLevels, rules_sup0.5, geom=c("point", "line"), 
+               xlab="Confidence level", ylab="Number of rules found", 
+               main="Apriori with a support level of 0.5%") + 
+  scale_y_continuous(breaks=seq(0, 130, 20)) +
+  theme_bw()
+
+# Subplot
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
+```
+
+Kita dapat menggabungkan empat baris untuk meningkatkan visualisasi.
+```{r}
+# Data frame
+num_rules <- data.frame(rules_sup10, rules_sup5, rules_sup1, rules_sup0.5, confidenceLevels)
+
+# Jumlah aturan yang ditemukan dengan level dukungan 10%, 5%, 1%, dan 0,5%
+ggplot(data=num_rules, aes(x=confidenceLevels)) +
+  
+  # Plot garis dan poin (tingkat dukungan 10%)
+  geom_line(aes(y=rules_sup10, colour="Support level of 10%")) + 
+  geom_point(aes(y=rules_sup10, colour="Support level of 10%")) +
+  
+  # Plot garis dan poin (tingkat dukungan 5%)
+  geom_line(aes(y=rules_sup5, colour="Support level of 5%")) +
+  geom_point(aes(y=rules_sup5, colour="Support level of 5%")) +
+  
+  # Plot garis dan poin (tingkat dukungan 1%)
+  geom_line(aes(y=rules_sup1, colour="Support level of 1%")) + 
+  geom_point(aes(y=rules_sup1, colour="Support level of 1%")) +
+  
+  #Plot garis dan poin (tingkat dukungan 0.5%)
+  geom_line(aes(y=rules_sup0.5, colour="Support level of 0.5%")) +
+  geom_point(aes(y=rules_sup0.5, colour="Support level of 0.5%")) +
+  
+  # Lab dan tema
+  labs(x="Confidence levels", y="Number of rules found", 
+       title="Apriori algorithm with different support levels") +
+  theme_bw() +
+  theme(legend.title=element_blank())
+```
+
+## Grafik
+```{r}
+#10 dari subAturan memiliki keyakinan tertinggi.
+top10subRules <- head(subRules, n = 10, by = "confidence")
+```
+
+```{r}
+plot(top10subRules, method = "graph",  engine = "htmlwidget") #interactive plot engine=htmlwidget
+```
+
+
+# Referensi
+
+https://rpubs.com/shah_np/463712
+
+https://github.com/ayaradhyana/Algoritma-FP-Growth
+
+https://rpubs.com/sitiramadeskaa/904549
+
+https://journal.budiluhur.ac.id/index.php/telematika/article/view/164
+
+https://www.kaggle.com/code/xvivancos/market-basket-analysis
